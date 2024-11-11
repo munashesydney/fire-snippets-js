@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <!-- Firebase App (the core Firebase SDK) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<!-- Include Firebase Auth and Firestore -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    </head>
+
+    <body>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <button id="submitBtn">Login</button>
+
+        <script>
+            window.customData = {
+              emailId: 'email',        // ID of the email input element
+              passwordId: 'password',  // ID of the password input element
+              snippetId: 'password',
+              buttonId: 'submitBtn',   // ID of the submit button
+              apiKey: 'munashe'   // The apiKey for the user
+            };
+          </script>
+
+        <script src="authsnippets.js"></script>
+          
+    </body>
+</html>

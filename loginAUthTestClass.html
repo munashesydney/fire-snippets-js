@@ -1,0 +1,62 @@
+<html>
+
+<head>
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <!-- Include Firebase Auth and Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+</head>
+
+<body>
+    <input type="text" id="name" placeholder="Name">
+    <input type="text" id="surname" placeholder="Surname">
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button id="submitBtn">Sign Up</button>
+    <br>
+    <p id="nameDisplay"></p>
+    <p id="surnameDisplay"></p>
+
+    <div id="containerId"></div>
+
+    <button onclick="letsUnsubscribe()">Unsubscribe</button>
+
+    <script src="authSnippetsv2.js"></script>
+
+    <script>
+
+       
+        function displayName(name, surname){
+            alert(name , " " ,surname );
+        }
+
+
+
+
+
+        // Usage example
+        const apiKey = "1TwfLCPLRHVedscUu9mX2EU4cxInp7Gh";  // Replace with the actual API key
+        const fireSnippets = new FireSnippets(apiKey);
+
+        // Call the login function with IDs and callbacks
+        //fireSnippets.signUp('E4ZhZs1qIhB2C8NFLAZS', (credential) => {/*Do stuff after success*/}, (errorMessage) => {/*Do stuff after faliure*/});
+
+
+        let dynamic;
+        fireSnippets.dynamicDisplay('A7rKPPWxJP1PThYrQiUA',
+         [], 
+         (snapshot) => {/*Do stuff after success*/},
+         (errorMessage) => {/*Do stuff after faliure*/},
+         (snippet) => {dynamic = snippet; console.log(dynamic);});
+        
+
+        function letsUnsubscribe(){
+            dynamic.unsubscribe();
+        }
+    </script>
+
+</body>
+
+</html>
