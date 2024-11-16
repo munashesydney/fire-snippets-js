@@ -27,9 +27,9 @@
 
     <script>
 
-       
-        function displayName(name, surname){
-            alert(name , " " ,surname );
+
+        function displayName(name, surname) {
+            alert(name, " ", surname);
         }
 
 
@@ -44,15 +44,35 @@
         //fireSnippets.signUp('E4ZhZs1qIhB2C8NFLAZS', (credential) => {/*Do stuff after success*/}, (errorMessage) => {/*Do stuff after faliure*/});
 
 
-        let dynamic;
+        /*let dynamic;
         fireSnippets.dynamicDisplay('A7rKPPWxJP1PThYrQiUA',
          [], 
-         (snapshot) => {/*Do stuff after success*/},
-         (errorMessage) => {/*Do stuff after faliure*/},
-         (snippet) => {dynamic = snippet; console.log(dynamic);});
-        
+         (snapshot) => {},
+         (errorMessage) => {},
+         (snippet) => {dynamic = snippet; console.log(dynamic);});*/
 
-        function letsUnsubscribe(){
+        /*fireSnippets.add('7KZdUeMljuEtPXMnAGP7', [], (credential) => {
+            // Do stuff after success
+            console.log("All good");
+        },
+            (errorMessage) => {
+                // Do stuff after failure
+                console.log("Oh No!");
+            }
+        );*/
+
+        fireSnippets.payment('meRrbRVWOIkkoaKpYegx', [{name:"uid", value:"3G0lramym4Nmjdte7TlVoU217ZH2"}], (credential) => {
+            // Do stuff after success
+            console.log("All good");
+        },
+            (errorMessage) => {
+                // Do stuff after failure
+                console.log("Oh No!");
+            }
+        );
+
+
+        function letsUnsubscribe() {
             dynamic.unsubscribe();
         }
     </script>

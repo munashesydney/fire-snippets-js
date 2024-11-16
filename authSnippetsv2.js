@@ -3,6 +3,8 @@ class FireSnippets {
         this.apiKey = apiKey;
         this.db = null;
         this.workspaceConfig = null;
+        this.workspaceId = null;
+        this.userId = null;
 
         // Initialize personal Firebase app
         this.personalFirebaseConfig = {
@@ -33,6 +35,83 @@ class FireSnippets {
         //await this.findWorkspaceByApiKey();
     }
 
+    async incrementField(field) {
+        if (!this.db) {
+            console.error("Firestore database not initialized.");
+            return;
+        }
+
+        if (!this.workspacePath) {
+            console.error("Workspace path not defined.");
+            return;
+        }
+
+        if (!field || typeof field !== 'string') {
+            console.error("Invalid field provided.");
+            return;
+        }
+
+        try {
+            // Increment the field atomically
+            await this.db.doc(this.workspacePath).update({
+                [field]: firebase.firestore.FieldValue.increment(1),
+            });
+            console.log(`Successfully incremented field: ${field}`);
+        } catch (error) {
+            console.error("Error incrementing field:", error);
+        }
+    }
+
+    async incrementFieldSnippetCall(field, snippetId) {
+        if (!this.db) {
+            console.error("Firestore database not initialized.");
+            return;
+        }
+    
+        if (!this.workspacePath) {
+            console.error("Workspace path not defined.");
+            return;
+        }
+    
+        if (!field || typeof field !== 'string') {
+            console.error("Invalid field provided.");
+            return;
+        }
+    
+        try {
+            const snippetDocRef = this.db.doc(`${this.workspacePath}/snippets/${snippetId}`);
+    
+            // Use a Firestore transaction to handle field incrementing or initialization
+            await this.db.runTransaction(async (transaction) => {
+                const snippetDoc = await transaction.get(snippetDocRef);
+    
+                if (!snippetDoc.exists) {
+                    console.error(`Snippet with ID ${snippetId} does not exist.`);
+                    return;
+                }
+    
+                const snippetData = snippetDoc.data() || {};
+    
+                // If the field doesn't exist, initialize it to 1
+                if (!(field in snippetData)) {
+                    transaction.set(snippetDocRef, { [field]: 1 }, { merge: true });
+                } else {
+                    // Increment the existing field
+                    transaction.update(snippetDocRef, {
+                        [field]: firebase.firestore.FieldValue.increment(1),
+                    });
+                }
+            });
+    
+            console.log(`Successfully incremented snippet call for ${snippetId}`);
+        } catch (error) {
+            console.error("Error incrementing field:", error);
+        }
+    }
+    
+    
+
+
     // Function to find workspace by apiKey
     async findWorkspaceByApiKey() {
         if (!this.db) {
@@ -52,15 +131,21 @@ class FireSnippets {
         }
 
         const workspaceDoc = workspacesQuery.docs[0];
+        this.workspaceId = workspaceDoc.id;
         this.workspaceConfig = workspaceDoc.data().firebaseConfig;
+        this.sAcc = workspaceDoc.data().sAcc;
         this.workspacePath = workspaceDoc.ref.path;
+
+        const pathSegments = workspaceDoc.ref.path.split("/");
+        const userId = pathSegments[1];
+        this.userId = userId;
 
         console.log("Workspace found and configured.");
     }
 
     // Function to find snippet by snippetId
     async findSnippetById(snippetId) {
-        if(this.workspaceConfig == null){
+        if (this.workspaceConfig == null) {
             await this.findWorkspaceByApiKey();
         }
 
@@ -181,6 +266,10 @@ class FireSnippets {
                     try {
                         const userCredential = await userAuth.signInWithEmailAndPassword(emailValue, passwordValue);
                         console.log("User logged in successfully");
+
+                        await this.incrementField('currentAuth');
+                        await this.incrementFieldSnippetCall('calls',snippetId);
+
                         onSuccess && onSuccess(userCredential); // Call onSuccess callback if login is successful
                         resolve(userCredential);
                     } catch (error) {
@@ -266,6 +355,9 @@ class FireSnippets {
                         const firestore = firebase.firestore(userApp);
                         await firestore.collection("TheUsers").doc(userCredential.user.uid).set(userData);
 
+                        await this.incrementField('currentAuth');
+                        await this.incrementFieldSnippetCall('calls',snippetId);
+
                         onSuccess && onSuccess(userCredential); // Call onSuccess callback if sign-up is successful
 
                         resolve(userCredential);
@@ -282,6 +374,200 @@ class FireSnippets {
             });
         });
     }
+
+    add(snippetId, variables, onSuccess, onFailure) {
+        this.findSnippetById(snippetId).then(async ({ foundWorkspaceConfig, snippetData }) => {
+            if (!foundWorkspaceConfig || !snippetData) {
+                console.error("No workspace or snippet found with the provided apiKey and snippetId.");
+                onFailure && onFailure("No workspace or snippet found with the provided apiKey and snippetId.");
+                return;
+            }
+
+            const { pathSegments, fieldMappings, buttonElementId } = snippetData;
+
+            if (!Array.isArray(pathSegments) || !Array.isArray(fieldMappings) || !buttonElementId) {
+                console.error("Invalid pathSegments, fieldMappings, or buttonElementId in snippetData.");
+                onFailure && onFailure("Invalid snippet configuration.");
+                return;
+            }
+
+            // Retrieve the button element
+            const submitButton = document.getElementById(buttonElementId);
+            if (!submitButton) {
+                console.error(`Button element with id "${buttonElementId}" not found.`);
+                onFailure && onFailure(`Button element with id "${buttonElementId}" not found.`);
+                return;
+            }
+
+            // Attach an onclick listener to the submit button
+            submitButton.onclick = async () => {
+                // Collect data from the elements specified in fieldMappings
+                const data = {};
+
+                for (let mapping of fieldMappings) {
+                    const { field, elementId } = mapping;
+                    const element = document.getElementById(elementId);
+                    if (element) {
+                        data[field] = element.value;
+                    } else {
+                        console.error(`Element with id "${elementId}" not found.`);
+                        onFailure && onFailure(`Element with id "${elementId}" not found.`);
+                        return;
+                    }
+                }
+
+                // Resolve pathSegments using variables
+                const resolvedPathSegments = pathSegments.map(segment => {
+                    if (segment.type === "collection" || segment.type === "document") {
+                        let resolvedValue = segment.value;
+                        variables.forEach(variable => {
+                            const placeholder = `$${variable.name}`;
+                            if (resolvedValue.includes(placeholder)) {
+                                resolvedValue = resolvedValue.replace(placeholder, variable.value);
+                            }
+                        });
+                        return { type: segment.type, value: resolvedValue };
+                    }
+                    return segment;
+                });
+
+                // Construct the Firestore path from resolvedPathSegments
+                let firestorePath = '';
+                resolvedPathSegments.forEach((segment, index) => {
+                    firestorePath += `${segment.value}${index < resolvedPathSegments.length - 1 ? '/' : ''}`;
+                });
+
+                try {
+                    // Initialize user's Firebase app
+                    const userAppName = "UserApp";
+                    let userApp;
+                    if (!firebase.apps.some(app => app.name === userAppName)) {
+                        userApp = firebase.initializeApp(foundWorkspaceConfig, userAppName);
+                    } else {
+                        userApp = firebase.app(userAppName);
+                    }
+
+                    // Retrieve Firestore instance for user app
+                    const firestore = firebase.firestore(userApp);
+
+                    // Add new document to the specified collection
+                    await firestore.collection(firestorePath).add(data);
+
+                    console.log("Document added successfully.");
+                    await this.incrementField('currentWrites');
+                    await this.incrementFieldSnippetCall('calls',snippetId);
+
+                    onSuccess && onSuccess(); // Call onSuccess callback if addition is successful
+                } catch (error) {
+                    console.error("Error adding document:", error);
+                    onFailure && onFailure(error.message); // Call onFailure callback if addition fails
+                }
+            };
+        }).catch(error => {
+            console.error("Error fetching workspace or snippet:", error);
+            onFailure && onFailure("Error fetching workspace or snippet.");
+        });
+    }
+
+    payment(snippetId, variables, onSuccess, onFailure) {
+        this.findSnippetById(snippetId).then(async ({ foundWorkspaceConfig, snippetData }) => {
+            if (!foundWorkspaceConfig || !snippetData) {
+                console.error("No workspace or snippet found with the provided apiKey and snippetId.");
+                onFailure && onFailure("No workspace or snippet found with the provided apiKey and snippetId.");
+                return;
+            }
+
+            const { buttonElementId, priceID, paymentType } = snippetData;
+
+            console.log(priceID);
+
+            if (!buttonElementId || !priceID) {
+                console.error("Invalid buttonElementId or priceId in snippetData.");
+                onFailure && onFailure("Invalid snippet configuration.");
+                return;
+            }
+
+            // Retrieve the button element
+            const submitButton = document.getElementById(buttonElementId);
+            if (!submitButton) {
+                console.error(`Button element with id "${buttonElementId}" not found.`);
+                onFailure && onFailure(`Button element with id "${buttonElementId}" not found.`);
+                return;
+            }
+
+            // Attach an onclick listener to the submit button
+            submitButton.onclick = async () => {
+                try {
+                    // Prepare the data for the payment link
+                    const paymentData = {
+                        priceId: priceID,
+                        sAcc: this.sAcc, // Connected Stripe account ID
+                        paymentType: paymentType,
+                        metadata: {}
+                    };
+
+                    // Add variables to metadata
+                    if (Array.isArray(variables)) {
+                        variables.forEach(variable => {
+                            paymentData.metadata[variable.name] = variable.value;
+                        });
+                    }
+
+
+                    paymentData.metadata['snippetId'] = snippetId;
+                    paymentData.metadata['workspaceId'] = this.workspaceId;
+                    paymentData.metadata['userId'] = this.userId;
+
+                    // Call the backend endpoint to create the payment link
+                    console.log("Attempting");
+                    const response = await fetch('https://server.firesnippets.com/create-payment-link', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(paymentData)
+                    });
+
+                    console.log("Done");
+                    console.log(response);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error("Error creating payment link:", errorText);
+                        onFailure && onFailure("Error creating payment link.");
+                        return;
+                    }
+
+                    const result = await response.json();
+
+                    const paymentLink = result.paymentLink;
+
+                    if (!paymentLink) {
+                        console.error("Payment link not received from server.");
+                        onFailure && onFailure("Payment link not received from server.");
+                        return;
+                    }
+
+                    await this.incrementFieldSnippetCall('calls',snippetId);
+
+                    onSuccess && onSuccess(paymentLink);
+
+                    // Redirect to the payment link
+                    window.location.href = paymentLink;
+
+                } catch (error) {
+                    console.error("Error processing payment:", error);
+                    onFailure && onFailure("Error processing payment.");
+                }
+            };
+        }).catch(error => {
+            console.error("Error fetching workspace or snippet:", error);
+            onFailure && onFailure("Error fetching workspace or snippet.");
+        });
+    }
+
+
+
 
     /*OLD STATIC DISPLAYstaticDisplay(snippetId, variables, onSuccess, onFailure) {
         return new Promise((resolve, reject) => {
@@ -556,7 +842,7 @@ class FireSnippets {
                     const lastSegment = resolvedPathSegments[resolvedPathSegments.length - 1];
 
                     // Function to process and display the document data
-                    const processDocuments = (snapshot) => {
+                    const processDocuments = async (snapshot) => {
                         if (snapshot.empty) {
                             console.error("No documents found at the specified path with the given filters.");
                             onFailure && onFailure("No documents found at the specified path with the given filters.");
@@ -576,6 +862,8 @@ class FireSnippets {
                             });
                         });
 
+                        await this.incrementField('currentReads');
+                        await this.incrementFieldSnippetCall('calls',snippetId);
                         onSuccess && onSuccess(snapshot.docs.map(doc => doc.data())); // Call onSuccess callback if data display is successful
                     };
 
@@ -1193,7 +1481,7 @@ class FireSnippets {
                     };
 
                     // Define the function to render content
-                    const renderContent = (snapshot) => {
+                    const renderContent = async (snapshot) => {
                         containerElement.innerHTML = ''; // Clear existing content
 
                         snapshot.forEach(docSnapshot => {
@@ -1212,6 +1500,8 @@ class FireSnippets {
                             }
                         });
 
+                        await this.incrementField('currentReads');
+                        await this.incrementFieldSnippetCall('calls',snippetId);
                         onSuccess && onSuccess(snapshot);
                     };
 
