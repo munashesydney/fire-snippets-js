@@ -7,6 +7,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
+    <script src="https://cdn.firesnippets.com/fireSnippets.js"></script>
+
 </head>
 
 <body>
@@ -23,8 +25,6 @@
 
     <button onclick="letsUnsubscribe()">Unsubscribe</button>
 
-    <script src="authSnippetsv2.js"></script>
-
     <script>
 
 
@@ -37,7 +37,7 @@
 
 
         // Usage example
-        const apiKey = "1TwfLCPLRHVedscUu9mX2EU4cxInp7Gh";  // Replace with the actual API key
+        const apiKey = "test_9tvfTa2on3qKJiEs3RQsmjlnmjSf1xdL";  // Replace with the actual API key
         const fireSnippets = new FireSnippets(apiKey);
 
         // Call the login function with IDs and callbacks
@@ -61,15 +61,31 @@
             }
         );*/
 
-        fireSnippets.payment('meRrbRVWOIkkoaKpYegx', [{name:"uid", value:"3G0lramym4Nmjdte7TlVoU217ZH2"}], (credential) => {
-            // Do stuff after success
-            console.log("All good");
-        },
-            (errorMessage) => {
-                // Do stuff after failure
-                console.log("Oh No!");
-            }
-        );
+        //getting currentUser
+        fireSnippets.getCurrentUser().then(user => {
+            console.log('User: ', user.uid);
+        }).catch(error => {
+            console.error('User error:', error);
+        });
+
+
+        // Payment
+        fireSnippets.payment('Wsu8Cr2uWUqaoUitjOAc', []).then(paymentLink => {
+            console.log('Redirecting to payment link:', paymentLink);
+        }).catch(error => {
+            console.error('Payment error:', error);
+        });
+
+        // Sign Up
+        /*fireSnippets.signUp('sAOisQUiiO20jmhXdqsL')
+            .then(userCredential => {
+                // User signed up successfully
+                console.log('User signed up:', userCredential);
+            })
+            .catch(error => {
+                console.error('Sign-up error:', error);
+            });*/
+
 
 
         function letsUnsubscribe() {
